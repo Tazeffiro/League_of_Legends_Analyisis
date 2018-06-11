@@ -10,7 +10,7 @@ def pull_matchup_data(champid, tier='PLATINUM,DIAMOND,MASTER,CHALLENGER'):
     '''
     Pulls all matchups a given champion has in all roles
     '''
-    url = f'https://api.champion.gg/v2/champions/{champid}/matchups/?elo={tier}&api_key={champion_api_key}'
+    url = f'http://api.champion.gg/v2/champions/{champid}/matchups/?elo={tier}&api_key={champion_api_key}'
   
     connection = requests.get(url)
     json_data = connection.json()
@@ -87,3 +87,13 @@ if __name__ == '__main__':
     for value in init_data['data'].values():
         name2id[value['name']] = value['id']
         id2name[value['id']] = value['name']
+    data = {}
+    tiers = ['BRONZE','SILVER','GOLD','PLATINUM']
+    for elo in tiers:
+        for key in id2name.keys():
+            data[key] = pull_matchup_data(key, tier=elo)
+            time.sleep(.2) #for rate limiting
+        file = open(f'{elo}/patch{patch}.json')
+        file.write(json.dumps(data))
+        file.close()
+        print(elo + ": completed")
