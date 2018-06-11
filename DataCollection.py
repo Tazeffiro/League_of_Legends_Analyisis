@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 
 riot_api_key = "Your key"
 champion_api_key = "Your key"
