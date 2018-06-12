@@ -91,10 +91,25 @@ if __name__ == '__main__':
     data = {}
     tiers = ['BRONZE','SILVER','GOLD','PLATINUM']
     for elo in tiers:
+        data[elo] = {}
         for key in id2name.keys():
-            data[key] = pull_matchup_data(key, tier=elo)
+            data[elo][key] = pull_matchup_data(key, tier=elo)
             time.sleep(.2) #for rate limiting
-        file = open(f'{elo}/patch{patch}.json')
-        file.write(json.dumps(data))
+        file = open(f'{elo}/patch{patch}.json', 'w')
+        file.write(json.dumps(data[elo]))
         file.close()
-        print(elo + ": completed")
+        print(f'{elo} collected. Saving')
+        
+        roles = {}
+        for champ_id, stats in data[elo].items():
+            for matchups in stats:
+                if matchups['_id']['role']] not in roles.keys() 
+                    roles[matchups['_id']['role']] = []
+                roles[matchups['_id']['role']].append(matchups)
+        for role in roles.keys():
+            role_file = open(f'{elo}/{role}patch{patch}', 'w')
+            role_file.write(json.dumps(roles[role]))
+            role_file.close()
+        print(f'{elo} saved')
+              
+        
