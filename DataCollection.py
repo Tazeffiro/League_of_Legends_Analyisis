@@ -8,7 +8,9 @@ champion_api_key = "Your key"
 patch_data_location = 'patchdata.json'
 
 def pull_matchup_data(champid, tier='PLATINUM,DIAMOND,MASTER,CHALLENGER'):
-    '''Pulls all matchups a given champion has in all roles'''
+    '''
+    Pulls all matchups a given champion has in all roles
+    '''
     url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&api_key={champion_api_key}'
   
     connection = requests.get(url)
@@ -17,7 +19,9 @@ def pull_matchup_data(champid, tier='PLATINUM,DIAMOND,MASTER,CHALLENGER'):
     return json_data
 
 def data_patch():
-    '''Returns the patch on which the data was collected'''
+    '''
+    Returns the patch on which the data was collected
+    '''
     url = f'http://api.champion.gg/v2/champions?api_key={champion_api_key}'
     connection = requests.get(url)
     
@@ -53,7 +57,8 @@ def load_init_data():
     return init_data
 
 def file_acceptable(fileaddr = patch_data_location):
-    '''checks if file exists and is non-empty
+    '''
+    checks if file exists and is non-empty
     if so, attempts to open and create a parse it as json, 
     if the riot api request failed, a status key will be present in the file,
     
@@ -73,6 +78,7 @@ def file_acceptable(fileaddr = patch_data_location):
             return False
     else: 
         return False 
+    
 def gen_name2id():
     init_data = load_init_data()
     name2id = {}
