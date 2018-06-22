@@ -137,7 +137,6 @@ def sort_data(elo = ''):
                 roles[matchup['_id']['role']] = []
             roles[matchup['_id']['role']].append(matchup)
     for role in roles.keys():
-        print(role)
         with open(f'{folder}/{role}patch{patch}.json','w') as file:
             file.write(json.dumps(roles[role]))
     
