@@ -7,11 +7,12 @@ riot_api_key = "Your key"
 champion_api_key = "Your key"
 patch_data_location = 'patchdata.json'
 
-def pull_matchup_data(champid, tier='PLATINUM,DIAMOND,MASTER,CHALLENGER'):
+def pull_matchup_data(champid, tier=''):
     '''
     Pulls all matchups a given champion has in all roles
     '''
-    url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&api_key={champion_api_key}'
+    #limit chosen so that all matchups will be pulled
+    url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&limit=1000&api_key={champion_api_key}'
   
     connection = requests.get(url)
     json_data = connection.json()
@@ -51,7 +52,7 @@ def load_init_data():
     '''
     reads file patchdata.json to supply neccesary variables for analysis
     '''
-    init_file = open(patch_data_location, 'r+')
+    init_file = open(patch_data_location, 'r')
     init_data = json.load(init_file)
     init_file.close()
     return init_data
@@ -131,18 +132,38 @@ def sort_data(elo = ''):
     jsonfile = json.load(file)
     file.close()
     roles = {}
-    for value in jsonfile.values():
-        for matchup in value:
-            if matchup['_id']['role'] not in roles.keys():
-                roles[matchup['_id']['role']] = []
-            roles[matchup['_id']['role']].append(matchup)
+    for champid, matchupList in jsonfile.items():
+        for matchup in matchupList:
+            role = matchup['_id']['role']
+            if role not in roles.keys():
+                roles[role] = {}
+            if champid not in roles[role].keys():
+                roles[role][champid] = []
+            roles[role][champid].append(matchup)
     for role in roles.keys():
+        for champ, matchup in roles[role].items():
+            ensure_champ1(champ, matchup)
         with open(f'{folder}/{role}patch{patch}.json','w') as file:
             file.write(json.dumps(roles[role]))
-    
+ 
+def ensure_champ1(champ, matchups):
+    '''
+    Used in sort_data() to ensure that champ1 is always the champion being referenced 
+    when looked up in the role json file
+    '''
+    for matchup in matchups:
+        del matchup['_id']
+        if str(matchup['champ2_id']) == champ:
+            temp = matchup['champ1']
+            matchup['champ1'] = matchup['champ2']
+            matchup['champ2'] = temp
+            temp = matchup['champ1_id']
+            matchup['champ1_id'] = matchup['champ2_id']
+            matchup['champ2_id'] = temp
     
 if __name__ == '__main__':
     # goal is to update champion list only when needed
+
     if not file_acceptable():
         rewrite_init_data()
 
@@ -150,5 +171,3 @@ if __name__ == '__main__':
     for elo in tiers:
         download_matchups(elo = elo)
         sort_data(elo = elo)
-              
-        
