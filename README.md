@@ -32,7 +32,22 @@ With these distributions in hand comparisons between matchups becomes feasible a
 For a given set of matchups with win probabilities drawn from known distributions, the expected minimum winrate will follow the distribution determined by the product of all of the distbutions survival function (1 - cdf) integrated from 0 to 1. 
 
 NOTE:
-Not all champions, played in a given role, have played against eachother in a given data-set. As such, A distribution must be chosen such that these unplayed matchups effect the worst-case matchup calculation.
+Not all champions, played in a given role, have played against eachother in a given data-set. As such, A distribution must be chosen such that these unplayed matchups effect the worst-case matchup calculation. This process will be most helpful when there is a high degree of uncertainty in the probability of the blindly chosen champion winning.
+
+## Counter picks in Solo Queue
+For the purpose of brevity I will constrain this discussion to the realm of solo queue. As a result, I will ignore trading champions and trading pick order. 
+
+Given a set of champions picked by the enemy team, each of those champions will have a probability of playing in your lane or somewhere else. An example may be Karma being played as either support or mid. As a result the following arrises.
+
+P(win) = P(win|karma mid) * P(karma mid) + P(win|karma not mid) * P(karma not mid)
+
+This can be naturally expanded to cover all 5 champions picked by your opponents should you be last pick. 
+
+NOTE:
+In the absense of statistics regarding the rate of karma mid vs karma support given there is a karma in the game, I will use the play rate for each role for the champion in question. Thus if karma playes 25% of her games mid, I will estimate P(karma mid) to be 25%. Such statisitcs may come in the future when I am able to collect data on a large number of games.
+
+### Counter picks in Competitive
+Work in progress- Need to brush up on my understading of nash 
 
 ## Possible Sources of Error
 
