@@ -131,47 +131,6 @@ def gen_distribution_array(champData):
     
     
     
-if __name__ == "__main__":
-    '''
-    elo = 'SILVER'
-    role = 'TOP'
-    patch = gen_patch()
-    #Loads the file and flattens it to work nicely with numpy
-    file = open(f'{elo}/{role}patch{patch}.json','r')
-    data = json.load(file)
-    file.close()
-    pddata = json_normalize(data)
-    
-    #generating the expected winrate from the record of games
-    pddata['champ1.expected_winrate'] = (pddata['champ1.wins'] + 1 )/ (pddata['count'] + 2)
-    pddata['champ2.expected_winrate'] = (pddata['champ2.wins'] + 1 )/ (pddata['count'] + 2)
-    
-    pddata['champ1.opponent'] = pddata['champ2_id']
-    pddata['champ2.opponent'] = pddata['champ1_id']
-    
-    pddata['champ1.count'] = pddata['count']
-    pddata['champ2.count'] = pddata['count']
-    ids = pddata['champ1_id'].append(pddata['champ2_id'])
-    ids = ids.unique()
-    worstWinrates = {}
-    id2name = gen_id2name()
-    for champion in ids:
-        dat = query(champion, pddata)
-        df = pd.DataFrame()
-        
-        df['opponents'] = dat('opponent')
-        df['wins'] = dat('wins')
-        df['count'] = dat('count')
-        df = df.drop_duplicates()
-        distList = []
-        for i in range(df['count'].size):
-            distrib = gen_distribution(df['count'].iloc[i], df['wins'].iloc[i])
-            distList.append(distrib)
-        sf = min_survival_function(distList)
 
-        worstWinrates[id2name[champion]] = expected_min(distList)
-        '''
-
-        
 
 
