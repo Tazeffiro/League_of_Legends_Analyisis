@@ -29,7 +29,7 @@ The expected winrate then becomes a/(a+b) = (k+1)/(n+2) = (wins + 1)/(wins + los
 With these distributions in hand comparisons between matchups becomes feasible as only the probability that one matchups chance to win is higher than the others needs to be considered.
 
 ## Estimating the Worst-Case Matchup
-For a given set of matchups with win probabilities drawn from known distributions, the expected minimum winrate will follow the distribution determined by the product of all of the distbutions survival function (1 - cdf) integrated from 0 to 1. 
+For a given set of matchups with win probabilities drawn from known distributions, the expected minimum winrate will follow the distribution determined by the product of all of the distbutions survival function (1 - cdf) integrated from 0 to 1. This does assume the independence of various winrates with one another. Given how champions are reffered to as members of a class by the community and riot at large; expecting this to be near a lower bound seems reasonable.
 
 NOTE:
 Not all champions, played in a given role, have played against eachother in a given data-set. As such, A distribution must be chosen such that these unplayed matchups effect the worst-case matchup calculation. This process will be most helpful when there is a high degree of uncertainty in the probability of the blindly chosen champion winning.
