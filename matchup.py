@@ -3,17 +3,187 @@ from scipy.integrate import quad
 from scipy.optimize import brentq
 import json
 import matplotlib.pyplot as plt
-import math
 import numpy as np
+from DataCollection import gen_id2name
 
+class champion:
+    def __init__(self,ID, patch, elo, load_all_stats = False, data = None):
+        '''
+        Pass champion ID, the patch in question, and the elo all as strings
+        '''
+        self.elo = elo
+        self.patch = patch
+        self.id = ID
+        self.roles = ['MIDDLE', 'TOP', 'JUNGLE', 'DUO_SUPPORT', 'DUO_CARRY']
+        # Allows loading from data one load
+        if data == None:
+            self.load_data() # Creates roleData dictionary (self.roleData)
+        else:
+            self.roleData = data # takes data from initialization
 
-def gen_distribution(games_played, wins):
-    '''
-    returns the appropriate probability distribution for the probability of
-    winning that matchup
-    '''
-    return beta(wins + 1, games_played - wins + 1)
+         
+        self.gen_matchups()
+        self.gen_playPercentages()
+        self.gen_survival_functions() # Generates self.survivial_functions
+        if load_all_stats:
+            self.load_stats()
+    
+    def load_stats(self):
+        self.expected_mins()
+        self.expected_variances()
+        self.expected_stds()
+        self.gen_probabilities_worst_matchup_5050()
+        
+    def load_data(self):
+        filenames = {}
+        self.roleData = {}
+        for role in self.roles:
+            filenames[role] = f'{self.elo}/{role}patch{self.patch}.json'
+        for role,filename in filenames.items():
+            with open(filename) as file:
+                self.roleData[role] = json.load(file)[self.id]
+        print(f'{self.id} loaded')
 
+    def gen_distribution(self, games_played, wins):
+        '''
+        returns the appropriate probability distribution for the probability of
+        winning that matchup
+        '''
+        return beta(wins + 1, games_played - wins + 1)     
+       
+    def gen_matchups(self):
+        self.matchups = {}
+        self.distList = {}
+        for role in self.roles:
+            self.matchups[role] = {match['champ2_id']:self.gen_distribution(match['count'],match['champ1']['wins']) for match in self.roleData[role]}
+            self.distList[role] = list(self.matchups[role].values())
+            
+    def gen_playPercentages(self):
+        plays = {}
+        #collecting the Number of games
+        for role in self.roles:
+            count = sum([thing['count'] for thing in self.roleData[role]])
+            plays[role] = count
+        tot = sum(plays.values())
+        for role, ct in plays.items():
+            plays[role] /= tot
+        self.playPercentages = plays
+        
+        
+    def gen_survival_functions(self):
+        ''' generates a naive survival function assuming all champion 
+        win probabilities are independent
+        '''
+        self.survival_functions = {}
+        for role in self.roles:
+            sfl = [matchup.sf for matchup in self.distList[role]]
+            self.survival_functions[role] = functionProduct(sfl)
+            
+    def plot_survival_functions(self, positions = None):
+        if positions == None:
+            self.plot_survival_functions(self.roles)
+            return None
+        for position in positions:
+            x = np.arange(0,1,.01)
+            y = self.survival_functions[position](x)
+            plt.plot(x,y, label=position)
+        plt.show()
+    def plot_survival_function(self, position):
+        self.plot_survival_functions([position])
+    
+    def expected_mins(self):
+        '''
+        Calculates the expected minimum winrate for a given set of matchups
+        '''
+        self.expected_min_winrates = {}
+        for role in self.roles:
+            integrationResult = quad(self.survival_functions[role], 0, 1)
+            self.expected_min_winrates[role] = integrationResult[0] #[0] hides the error term
+    
+    def expected_variances(self):
+        self.vars_of_mins = {}
+        for role in self.roles:
+            integrationResult = quad(lambda x: 2 * x * self.survival_functions[role](x), 0, 1)[0] #[0] hides the error term
+            self.vars_of_mins[role] = integrationResult - self.expected_min_winrates[role]**2
+            
+    def expected_stds(self):
+        self.stds = {}
+        for role in self.roles:
+            self.stds[role] = np.sqrt(self.vars_of_mins[role])
+    def gen_pwm5050(self):
+        self.gen_probabilities_worst_matchup_5050()
+    
+    def gen_probabilities_worst_matchup_5050(self):
+        '''
+        input Survival function or cdf function and get the probability that 
+        a champions best matchup is better than 5050
+        '''
+        self.probabilities_worst_matchup_5050 = {}
+        for role in self.roles:
+            func = lambda x: self.survival_functions[role](x) - .5
+            self.probabilities_worst_matchup_5050[role] = brentq(func, 0, 1)
+            self.pwm5050 = self.probabilities_worst_matchup_5050
+
+class meta():
+    def __init__(self, elo, patch, load_all_stats = False):
+        self.IdList = [str(thing) for thing in gen_id2name().keys()]
+        self.Champions = {}
+        self.elo = elo
+        self.patch = patch
+        self.roles = ['MIDDLE', 'TOP', 'JUNGLE', 'DUO_SUPPORT', 'DUO_CARRY']
+        self.populate_champions(load_all_stats)
+
+    def populate_champions(self, load_all_stats = False, progress_increment = 10):
+        data = self.gen_data()
+        counter = 0.
+        progress = progress_increment
+        for champId in self.IdList:
+            cdat = {role:data[champId] for role, data in data.items()}
+            self.Champions[champId] = champion(champId, self.patch, self.elo, load_all_stats, data=cdat)
+            if counter / len(self.IdList) > progress / 100:
+                print(f'{progress}% complete')
+                progress += progress_increment
+            counter += 1
+                
+        print("Champions Loaded")
+        
+    def gen_data(self):
+        '''
+        Compiles a dictionary of champion matchup data sorted by role and then
+        by champion
+        '''
+        dat = {}
+        for role in self.roles:
+            filename = f'{self.elo}/{role}patch{self.patch}.json'
+            with open(filename, 'r') as file:
+                dat[role] = json.load(file)
+        return dat
+    
+    def eval_metric(self, role, func):
+        '''
+        Evaluated a metric for the champions played in a specific role in the 
+        given meta
+        '''  
+        metrics = {key:func(champ,role) for key, champ in self.Champions.items()}
+        return metrics
+    
+    def metric_zipf_plot(self, metrics):
+        mets = sorted(list(metrics.values()), reverse=True)
+        x = [i for i in range(len(mets))]
+        plt.plot(x, mets)
+        plt.show()
+        
+    def pull_metrics(self, role, category):
+        metrics = {key:getattr(champ,category,None) for key, champ in self.Champions.items()}
+        try:
+            met = {}
+            for key,metric in metrics.items():
+                met[key] = metric[role]
+            return met
+        except:
+            return metrics
+
+        
 def compare_distributions(dist1, dist2):
     '''
     compares 2 independent distributions
@@ -24,38 +194,6 @@ def compare_distributions(dist1, dist2):
     returns tuple of form (value, error)
     '''
     return quad(lambda x: dist1.cdf(x)*dist2.pdf(x), 0, 1)
-
-def min_survival_function(distList):
-    ''' 
-    returns the survival function of the probability that a champions worst 
-    matchup is p
-    '''
-    sfl = [thing.sf for thing in distList]
-    return functionProduct(sfl)
-
-def expected_min(distList):
-    '''
-    Calculates the expected minimum winrate for a given set of matchups
-    '''
-    productFunction = min_survival_function(distList)
-    integrationResult = quad(productFunction, 0, 1)
-    return integrationResult
-
-def expected_min_square(distList):
-
-        
-    sf = min_survival_function(distList)
-    productFunction = lambda x: sf(x) * x
-    integrationResult = quad(productFunction, 0,1)
-    return (integrationResult[0]*2, integrationResult[1]*2)
-
-def variance_of_min(distList):
-    e = expected_min(distList)[0]
-    e2 = expected_min_square(distList)[0]
-    return e2 - e**2
-    
-def std_of_min(distList):
-    return math.sqrt(variance_of_min(distList))
 
 def functionProduct(functionList):
     ''' 
@@ -69,68 +207,10 @@ def functionProduct(functionList):
         return temp
     return prod
 
-def probability_worst_matchup_5050(distList):
-    '''
-    input Survival function or cdf function and get the probability that 
-    a champions best matchup is better than 5050
-    '''
-    sf = min_survival_function(distList)
-    fun = lambda x: sf(x) - .5
-    return brentq(fun,0,1)
-    
 
-def load_file(elo, role, patch):
-    filename = f'{elo}/{role}patch{patch}.json'
-    js = ''
-    with open(filename, 'r') as file:
-        file = open(filename,'r')
-        js = json.load(file)
-    return js
-
-def matchupToDist(matchup):
-    games = matchup['count']
-    wins = matchup['champ1']['wins']
-    return gen_distribution(games, wins)
-
-def performance(elo, role, patch, func):
-    '''
-    pass in a performance metric for a given champions matchup record
-    
-    the function must be over a list of distributions each representing a matchup
-    '''
-    data = load_file(elo, role, patch)
-    print('Data Loaded')
-    distArray = {champId:func(gen_distribution_array(matchups)) for champId, matchups in data.items()}
-    return distArray
-    
-def plot_sf(champ, elo, role, patch):
-    data = load_file(elo, role, patch)[champ]
-    champ_dists = gen_distribution_array(data)
-    function = min_survival_function(champ_dists)
-    
-    x = np.arange(0,1,.01)
-    y = function(x)
-    plt.plot(x,y)
-    plt.show()
-    
-def plot_zipf(elo, role, patch, func = probability_worst_matchup_5050):
-    perfArray = performance(elo, role, patch, func)
-    perfArray = [value for value in perfArray.values()]
-    perfArray = np.log10(np.array(sorted(perfArray, reverse=True)))
-    x = np.arange(1,len(perfArray) + 1)
-    plt.title(f'Zipf plot for {role} on {patch} at {elo} elo')
-    plt.xlabel('Rank')
-    plt.ylabel('log10(performance)')
-    plt.scatter(x, perfArray)
-    plt.show()
-    
-def gen_distribution_array(champData):
-    distribution_array = [matchupToDist(matchup) for matchup in champData]
-    return distribution_array
-    
-    
-    
     
 
 
-
+if __name__ == "__main__":
+    tiers = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'HIGH']
+    roles = ['TOP', 'MIDDLE', 'JUNGLE', 'DUO_CARRY', 'DUO_SUPPORT']
