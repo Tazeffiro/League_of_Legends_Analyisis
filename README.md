@@ -47,7 +47,7 @@ NOTE:
 In the absense of statistics regarding the rate of karma mid vs karma support given there is a karma in the game, I will use the play rate for each role for the champion in question. Thus if karma playes 25% of her games mid, I will estimate P(karma mid) to be 25%. Such statisitcs may come in the future when I am able to collect data on a large number of games.
 
 ### Counter picks in Competitive
-Work in progress- Need to brush up on my understading of nash 
+Work in progress- Need to brush up on my understading of Nash 
 
 ## Possible Sources of Error
 
@@ -59,3 +59,5 @@ Work in progress- Need to brush up on my understading of nash
     * Different sets of players may perform differently. Perhaps, experienced Azir players perform much better than their newbie counterparts. Such analysis is outside of the initial scope of this project but may be included in the future.
 4. Pick Rarity
     * Rarer picks may only be picked into specific matchups, as such they may have largely inflated matchup winrates. 
+5. The Naivity of The Estimation of the Worst Case Matchup
+    * Certain classes of champion may tend to succede against another, say assassins against marksmen. This may unevenly harm certain champions as the classes of champions are not entirely even in population.
