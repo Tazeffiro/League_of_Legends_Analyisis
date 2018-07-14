@@ -1,12 +1,46 @@
+''' 
+RateLimiter Class taken from https://gist.github.com/pquentin/5d8f5408cdad73e589d85ba509091741
+'''
 import requests
 import json
 import os
 import time
+import asyncio
+import aiohttp
 
-riot_api_key = "Your key"
-champion_api_key = "Your key"
+riot_api_key = "your key"
+champion_api_key = "your key"
 patch_data_location = 'patchdata.json'
 
+
+class RateLimiter:
+    RATE = 5
+    MAX_TOKENS = 5
+
+    def __init__(self, client):
+        self.client = client
+        self.tokens = self.MAX_TOKENS
+        self.updated_at = time.monotonic()
+
+    async def get(self, *args, **kwargs):
+        await self.wait_for_token()
+        return self.client.get(*args, **kwargs)
+
+    async def wait_for_token(self):
+        while self.tokens < 1:
+            self.add_new_tokens()
+            await asyncio.sleep(1)
+        self.tokens -= 1
+
+    def add_new_tokens(self):
+        now = time.monotonic()
+        time_since_update = now - self.updated_at
+        new_tokens = time_since_update * self.RATE
+        if new_tokens > 1:
+            self.tokens = min(self.tokens + new_tokens, self.MAX_TOKENS)
+            self.updated_at = now    
+    
+    
 def pull_matchup_data(champid, tier=''):
     '''
     Pulls all matchups a given champion has in all roles
@@ -33,8 +67,6 @@ def data_patch():
 def rewrite_init_data(region='na1'):
     '''
     rewrites initialization data based on data collected from the riot api
-    
-    ***needs to be tweaked as to request data from a specific patch
     '''
     url = f'https://{region}.api.riotgames.com/lol/static-data/v3/champions?api_key={riot_api_key}'
 
@@ -91,7 +123,7 @@ def gen_id2name():
     init_data = load_init_data()
     id2name = {}
     for value in init_data['data'].values():
-        id2name[value['id']] = value['name']
+        id2name[str(value['id'])] = value['name']
     return id2name
 
 def gen_patch():
@@ -117,6 +149,14 @@ def download_matchups(elo = ''):
     with open(f'{elo}/patch{patch}.json','w') as file:
         file.write(json.dumps(data))
     print(f'All data on {elo} elo Collected')
+
+def download_matchups_async(elo = ''):
+    champs = []
+    init_data = load_init_data()
+    for value in init_data['data'].values():
+        champs.append(str(value['id']))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(CollectData(tier = elo, clist = champs)) 
 
 def sort_data(elo = ''):
     '''
@@ -160,14 +200,43 @@ def ensure_champ1(champ, matchups):
             temp = matchup['champ1_id']
             matchup['champ1_id'] = matchup['champ2_id']
             matchup['champ2_id'] = temp
-    
+ 
+async def pull_m_data(champid, Throttler, tier = ''):
+    '''
+    Pulls all matchups a given champion has in all roles
+    '''
+    #limit chosen so that all matchups will be pulled
+
+    url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&limit=1000&api_key={champion_api_key}'
+    async with await Throttler.get(url) as resp:
+        return champid, await resp.json()
+
+async def CollectData(tier = '', clist = ['24']):
+    tasks = []
+    t0 = time.monotonic()
+    responses = []
+    patch = gen_patch()
+    async with aiohttp.ClientSession() as session:
+        throttle = RateLimiter(session)
+        for champ in clist:
+            task = asyncio.ensure_future(pull_m_data(champ,throttle,tier=tier))  
+            tasks.append(task)
+        responses = await asyncio.gather(*tasks)
+        print(time.monotonic() - t0)
+    if tier == '':
+        tier = 'HIGH'
+    values = {}
+    for result in responses:
+        values[result[0]] = result[1]
+    with open(f'{tier}/patch{patch}.json','w') as file:
+        file.write(json.dumps(values))
+
 if __name__ == '__main__':
     # goal is to update champion list only when needed
-
     if not file_acceptable():
         rewrite_init_data()
 
     tiers = ['BRONZE','SILVER','GOLD','PLATINUM','']
     for elo in tiers:
-        download_matchups(elo = elo)
+        download_matchups_async(elo = elo)
         sort_data(elo = elo)
