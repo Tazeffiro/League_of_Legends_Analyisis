@@ -11,6 +11,7 @@ import aiohttp
 riot_api_key = "your key"
 champion_api_key = "your key"
 patch_data_location = 'patchdata.json'
+fileloc = 'YourFileLoc'
 
 
 class RateLimiter:
