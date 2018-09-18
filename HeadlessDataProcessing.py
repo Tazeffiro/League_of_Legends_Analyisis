@@ -3,6 +3,8 @@
 Created on Sun Jun 10 15:30:29 2018
 
 @author: Trevor
+
+This is intended to be run as a cron job to collect data daily
 """
 
 from scipy.stats import beta
