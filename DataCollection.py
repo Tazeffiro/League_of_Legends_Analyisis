@@ -38,16 +38,15 @@ class RateLimiter:
         new_tokens = time_since_update * self.RATE
         if new_tokens > 1:
             self.tokens = min(self.tokens + new_tokens, self.MAX_TOKENS)
-            self.updated_at = now    
-    
-    
+            self.updated_at = now
+
+
 def pull_matchup_data(champid, tier=''):
     '''
-    Pulls all matchups a given champion has in all roles
+    Takes Data from champion.gg api and outputs all of the matchups a champion
+    has in the current patch
     '''
-    #limit chosen so that all matchups will be pulled
-    url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&limit=1000&api_key={champion_api_key}'
-  
+    url = f'http://api.champion.gg/v2/champions/{champid}/matchups?elo={tier}&limit=10000&api_key={champion_api_key}'
     connection = requests.get(url)
     json_data = connection.json()
     connection.close()
@@ -57,29 +56,28 @@ def data_patch():
     '''
     Returns the patch on which the data was collected
     '''
-    url = f'http://api.champion.gg/v2/champions?api_key={champion_api_key}'
+    url = f'http://api.champion.gg/v2/champions?limit=1&api_key={champion_api_key}'
     connection = requests.get(url)
-    
+
     jsonData = connection.json()
     connection.close()
     return jsonData[0]['patch']
 
-def rewrite_init_data(region='na1'):
+def rewrite_init_data(region='na1', patch = data_patch()):
     '''
     rewrites initialization data based on data collected from the riot api
-    '''
-    url = f'https://{region}.api.riotgames.com/lol/static-data/v3/champions?api_key={riot_api_key}'
 
-    connection = requests.get(url)
-    jsonData = connection.json()
-    connection.close()
-    jsonData['patch'] = data_patch()
-    
-    file = open(patch_data_location,'w')
-    file.write(json.dumps(jsonData))
-    file.close()
-    print('Need to write "rewrite_init_data()"')
-    
+    ***needs to be tweaked as to request data from a specific patch
+    '''
+    url = f'http://ddragon.leagueoflegends.com/cdn/{patch}.1/data/en_US/champion.json'
+    jsonData = ''
+    with requests.get(url) as conn:
+        jsonData = conn.json()
+    jsonData['patch'] = patch
+
+    with open(patch_data_location,'w') as file:
+        file.write(json.dumps(jsonData))
+
 def load_init_data():
     '''
     reads file patchdata.json to supply neccesary variables for analysis
@@ -92,9 +90,9 @@ def load_init_data():
 def file_acceptable(fileaddr = patch_data_location):
     '''
     checks if file exists and is non-empty
-    if so, attempts to open and create a parse it as json, 
+    if so, attempts to open and create a parse it as json,
     if the riot api request failed, a status key will be present in the file,
-    
+
     failing on any front results in returning false
     '''
     file_exists = os.path.isfile(fileaddr) and os.path.getsize(fileaddr) > 0
@@ -109,54 +107,37 @@ def file_acceptable(fileaddr = patch_data_location):
                 return dat[0]['patch'] == gen_patch()
         except:
             return False
-    else: 
-        return False 
-    
+    else:
+        return False
+
 def gen_name2id():
     init_data = load_init_data()
     name2id = {}
     for value in init_data['data'].values():
-        name2id[value['name']] = value['id']
+        name2id[value['id']] = value['key']
     return name2id
 
 def gen_id2name():
     init_data = load_init_data()
     id2name = {}
     for value in init_data['data'].values():
-        id2name[str(value['id'])] = value['name']
+        id2name[str(value['key'])] = value['id']
     return id2name
 
 def gen_patch():
-    ''' 
+    '''
     Returns the patch of the initialization data
     '''
     init_data = load_init_data()
     return init_data['patch']
 
-def download_matchups(elo = ''):
-    ''' 
-    Downloads all matchups in a specific elo bracket from api.champion.gg
-    '''
-    print('Downloading')
-    data = {}
-    id2name = gen_id2name()
-    patch = gen_patch()
-    for key in id2name.keys():
-        data[key] = pull_matchup_data(key, tier = elo)
-        time.sleep(.2) #Bad rate limiting practice 
-    if elo == '' or elo == 'HIGH':
-        elo = 'HIGH'
-    with open(f'{elo}/patch{patch}.json','w') as file:
-        file.write(json.dumps(data))
-    print(f'All data on {elo} elo Collected')
-
 def download_matchups_async(elo = ''):
     champs = []
     init_data = load_init_data()
     for value in init_data['data'].values():
-        champs.append(str(value['id']))
+        champs.append(str(value['key']))
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(CollectData(tier = elo, clist = champs)) 
+    loop.run_until_complete(CollectData(tier = elo, clist = champs))
 
 def sort_data(elo = ''):
     '''
@@ -168,7 +149,7 @@ def sort_data(elo = ''):
     if folder == '':
         folder = 'HIGH'
     patch = gen_patch()
-    file = open(f'{folder}/patch{patch}.json','r')
+    file = open(fileloc + f'{folder}/patch{patch}.json','r')
     jsonfile = json.load(file)
     file.close()
     roles = {}
@@ -183,12 +164,12 @@ def sort_data(elo = ''):
     for role in roles.keys():
         for champ, matchup in roles[role].items():
             ensure_champ1(champ, matchup)
-        with open(f'{folder}/{role}patch{patch}.json','w') as file:
+        with open(fileloc + f'{folder}/{role}patch{patch}.json','w') as file:
             file.write(json.dumps(roles[role]))
- 
+
 def ensure_champ1(champ, matchups):
     '''
-    Used in sort_data() to ensure that champ1 is always the champion being referenced 
+    Used in sort_data() to ensure that champ1 is always the champion being referenced
     when looked up in the role json file
     '''
     for matchup in matchups:
@@ -200,7 +181,8 @@ def ensure_champ1(champ, matchups):
             temp = matchup['champ1_id']
             matchup['champ1_id'] = matchup['champ2_id']
             matchup['champ2_id'] = temp
- 
+
+
 async def pull_m_data(champid, Throttler, tier = ''):
     '''
     Pulls all matchups a given champion has in all roles
@@ -211,28 +193,27 @@ async def pull_m_data(champid, Throttler, tier = ''):
     async with await Throttler.get(url) as resp:
         return champid, await resp.json()
 
-async def CollectData(tier = '', clist = ['24']):
+async def CollectData(tier = '', clist = ['24','13','555','1','2','3','4','5','6','7','8']):
     tasks = []
-    t0 = time.monotonic()
     responses = []
     patch = gen_patch()
     async with aiohttp.ClientSession() as session:
         throttle = RateLimiter(session)
         for champ in clist:
-            task = asyncio.ensure_future(pull_m_data(champ,throttle,tier=tier))  
+            task = asyncio.ensure_future(pull_m_data(champ,throttle,tier=tier))
             tasks.append(task)
         responses = await asyncio.gather(*tasks)
-        print(time.monotonic() - t0)
     if tier == '':
         tier = 'HIGH'
     values = {}
     for result in responses:
         values[result[0]] = result[1]
-    with open(f'{tier}/patch{patch}.json','w') as file:
+    with open(fileloc + f'{tier}/patch{patch}.json','w') as file:
         file.write(json.dumps(values))
 
 if __name__ == '__main__':
     # goal is to update champion list only when needed
+
     if not file_acceptable():
         rewrite_init_data()
 
