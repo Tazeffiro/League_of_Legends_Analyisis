@@ -1,4 +1,4 @@
-# League_of_Legends_Analyisis
+# League_of_Legends_Analysis
 A Python project using publicly available api's for the purposes of analysis
 
 # Theory of Operation
