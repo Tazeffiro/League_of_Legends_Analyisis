@@ -1,5 +1,5 @@
 # League_of_Legends_Analysis
-A Python project using publicly available api's for the purposes of analysis
+A Python project using publicly available api's for the purposes of analysis of the Pick and ban phase of a League of Legends game
 
 # Theory of Operation
 ## Concerning the game of picking and banning champions
